@@ -240,6 +240,7 @@ def _(
     dspy,
     Text2CypherWithExemplars,  # 追加
     ExemplarStore,  # ここに追加！
+    Text2CypherCache,
 ):
     class GraphRAG(dspy.Module):
         """
@@ -247,7 +248,7 @@ def _(
         on the Kuzu database, to generate a natural language response.
         """
 
-        def __init__(self, use_exemplars: bool = True):
+        def __init__(self, use_exemplars: bool = True, use_cache: bool = True):
             self.prune = dspy.Predict(PruneSchema)
             self.use_exemplars = use_exemplars
 
@@ -256,6 +257,11 @@ def _(
                 self.text2cypher = dspy.ChainOfThought(Text2CypherWithExemplars)                
             else:  
                 self.text2cypher = dspy.ChainOfThought(Text2Cypher)
+            
+            if use_cache:
+                self.cache = Text2CypherCache()
+            else:
+                self.cache = None
             self.generate_answer = dspy.ChainOfThought(AnswerQuestion)
 
         def _format_exemplars(self, exemplars: list[dict]) -> str:
@@ -268,10 +274,16 @@ def _(
         def get_cypher_query(self, question: str, input_schema: str) -> Query:
             prune_result = self.prune(question=question, input_schema=input_schema)
             schema = prune_result.pruned_schema
+            # キャッシュをチェック
+            if hasattr(self, 'cache') and self.cache:
+                cache_result = self.cache.get(question, str(schema))
+                if cache_result:
+                    print(f"Cache hit \n Stats: {self.cache.get_stats()}")
+                    return cache_result['query']
+            # キャッシュヒットしない場合はクエリ生成
             if self.use_exemplars:
                 # 類似した例を取得
                 similar_examples = self.exemplar_store.get_similar_exemplars(question, k=3)
-                # 例をフォーマット
                 exemplars_text = self._format_exemplars(similar_examples)
                 # Text2Cypherに例を渡す
                 text2cypher_result = self.text2cypher(
@@ -282,6 +294,11 @@ def _(
             else:
                 text2cypher_result = self.text2cypher(question=question, input_schema=schema)
             cypher_query = text2cypher_result.query
+            
+            # キャッシュに追加
+            if hasattr(self, 'cache') and self.cache:
+                self.cache.set(question, str(schema), cypher_query)
+
             return cypher_query
 
         def run_query(
@@ -333,10 +350,11 @@ def _(
                 }
                 return response
 
-
+    graph_rag_instance = GraphRAG()
     def run_graph_rag(questions: list[str], db_manager: KuzuDatabaseManager) -> list[Any]:
         schema = str(db_manager.get_schema_dict)
-        rag = GraphRAG()
+        # rag = GraphRAG()
+        rag = graph_rag_instance
         # Run pipeline
         results = []
         for question in questions:
@@ -344,7 +362,8 @@ def _(
             results.append(response)
         return results
 
-    return (run_graph_rag,)
+    return (run_graph_rag, graph_rag_instance)
+
 
 
 @app.cell
@@ -366,6 +385,7 @@ def _():
     from pydantic import BaseModel, Field
 
     from exemplar_store import ExemplarStore
+    from lru_cache import Text2CypherCache
     
     load_dotenv()
 
@@ -380,6 +400,7 @@ def _():
         kuzu,
         mo,
         ExemplarStore,
+        Text2CypherCache
     )
 
 
