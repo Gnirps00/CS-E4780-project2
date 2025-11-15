@@ -1,3 +1,4 @@
 .DS_Store
 .env
 nobel.kuzu.wal
+__pycache__/
