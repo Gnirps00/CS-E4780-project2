@@ -97,6 +97,37 @@ def _(GraphSchema, Query, dspy):
         input_schema: str = dspy.InputField()
         query: Query = dspy.OutputField()
 
+    class Text2CypherWithExemplars(dspy.Signature):
+        """
+        Translate the question into a valid Cypher query that respects the graph schema by using the provided examples as reference.
+
+        EXAMPLES:
+        {exemplars}
+
+        <SYNTAX>
+        - When matching on Scholar names, ALWAYS match on the `knownName` property
+        - For countries, cities, continents and institutions, you can match on the `name` property
+        - Use short, concise alphanumeric strings as names of variable bindings (e.g., `a1`, `r1`, etc.)
+        - Always strive to respect the relationship direction (FROM/TO) using the schema information.
+        - When comparing string properties, ALWAYS do the following:
+            - Lowercase the property values before comparison
+            - Use the WHERE clause
+            - Use the CONTAINS operator to check for presence of one substring in the other
+        - DO NOT use APOC as the database does not support it.
+        </SYNTAX>
+
+        <RETURN_RESULTS>
+        - If the result is an integer, return it as an integer (not a string).
+        - When returning results, return property values rather than the entire node or relationship.
+        - Do not attempt to coerce data types to number formats (e.g., integer, float) in your results.
+        - NO Cypher keywords should be returned by your query.
+        </RETURN_RESULTS>
+        """
+
+        question: str = dspy.InputField()
+        input_schema: str = dspy.InputField()
+        exemplars: str = dspy.InputField()
+        query: Query = dspy.OutputField()
 
     class AnswerQuestion(dspy.Signature):
         """
@@ -207,6 +238,8 @@ def _(
     Query,
     Text2Cypher,
     dspy,
+    Text2CypherWithExemplars,  # 追加
+    ExemplarStore,  # ここに追加！
 ):
     class GraphRAG(dspy.Module):
         """
@@ -214,15 +247,40 @@ def _(
         on the Kuzu database, to generate a natural language response.
         """
 
-        def __init__(self):
+        def __init__(self, use_exemplars: bool = True):
             self.prune = dspy.Predict(PruneSchema)
-            self.text2cypher = dspy.ChainOfThought(Text2Cypher)
+            self.use_exemplars = use_exemplars
+
+            if use_exemplars:
+                self.exemplar_store = ExemplarStore()
+                self.text2cypher = dspy.ChainOfThought(Text2CypherWithExemplars)                
+            else:  
+                self.text2cypher = dspy.ChainOfThought(Text2Cypher)
             self.generate_answer = dspy.ChainOfThought(AnswerQuestion)
+
+        def _format_exemplars(self, exemplars: list[dict]) -> str:
+            """例を読みやすい形式にフォーマット"""
+            formatted = []
+            for i, ex in enumerate(exemplars, 1):
+                formatted.append(f"""Example {i} (similarity: {ex['similarity']:.2f}):Question: {ex['question']} Cypher: {ex['cypher']}""")
+            return "\n".join(formatted)
 
         def get_cypher_query(self, question: str, input_schema: str) -> Query:
             prune_result = self.prune(question=question, input_schema=input_schema)
             schema = prune_result.pruned_schema
-            text2cypher_result = self.text2cypher(question=question, input_schema=schema)
+            if self.use_exemplars:
+                # 類似した例を取得
+                similar_examples = self.exemplar_store.get_similar_exemplars(question, k=3)
+                # 例をフォーマット
+                exemplars_text = self._format_exemplars(similar_examples)
+                # Text2Cypherに例を渡す
+                text2cypher_result = self.text2cypher(
+                    question=question,
+                    input_schema=schema,
+                    exemplars=exemplars_text
+                )
+            else:
+                text2cypher_result = self.text2cypher(question=question, input_schema=schema)
             cypher_query = text2cypher_result.query
             return cypher_query
 
@@ -307,6 +365,8 @@ def _():
     from dspy.adapters.baml_adapter import BAMLAdapter
     from pydantic import BaseModel, Field
 
+    from exemplar_store import ExemplarStore
+    
     load_dotenv()
 
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
@@ -319,6 +379,7 @@ def _():
         dspy,
         kuzu,
         mo,
+        ExemplarStore,
     )
 
 
