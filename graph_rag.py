@@ -129,6 +129,38 @@ def _(GraphSchema, Query, dspy):
         exemplars: str = dspy.InputField()
         query: Query = dspy.OutputField()
 
+    class Text2CypherWithSelfRefinementLoop(dspy.Signature):
+        """
+        Translate the question into a valid Cypher query.
+        Does the validation and loops again to create valid query if query is not valid.
+        Sends LLM the triple containing past questions, queries and error messages
+
+        <SYNTAX>
+        - When matching on Scholar names, ALWAYS match on the `knownName` property
+        - For countries, cities, continents and institutions, you can match on the `name` property
+        - Use short, concise alphanumeric strings as names of variable bindings (e.g., `a1`, `r1`, etc.)
+        - Always strive to respect the relationship direction (FROM/TO) using the schema information.
+        - When comparing string properties, ALWAYS do the following:
+            - Lowercase the property values before comparison
+            - Use the WHERE clause
+            - Use the CONTAINS operator to check for presence of one substring in the other
+        - DO NOT use APOC as the database does not support it.
+        </SYNTAX>
+
+        <RETURN_RESULTS>
+        - If the result is an integer, return it as an integer (not a string).
+        - When returning results, return property values rather than the entire node or relationship.
+        - Do not attempt to coerce data types to number formats (e.g., integer, float) in your results.
+        - NO Cypher keywords should be returned by your query.
+        </RETURN_RESULTS>
+        """
+
+        question: str = dspy.InputField()
+        input_schema: str = dspy.InputField()
+        exemplars: str = dspy.InputField()
+        triples: str = dspy.InputField()
+        query: Query = dspy.OutputField()
+
     class AnswerQuestion(dspy.Signature):
         """
         - Use the provided question, the generated Cypher query and the context to answer the question.
@@ -241,6 +273,7 @@ def _(
     Text2CypherWithExemplars,  # 追加
     ExemplarStore,  # ここに追加！
     Text2CypherCache,
+    Text2CypherWithSelfRefinementLoop
 ):
     class GraphRAG(dspy.Module):
         """
@@ -248,13 +281,18 @@ def _(
         on the Kuzu database, to generate a natural language response.
         """
 
-        def __init__(self, use_exemplars: bool = True, use_cache: bool = True):
+        def __init__(self, use_exemplars: bool = True, use_cache: bool = True, use_loop: bool = True):
             self.prune = dspy.Predict(PruneSchema)
             self.use_exemplars = use_exemplars
+            self.use_loop = use_loop
+            self.triples = []
 
             if use_exemplars:
                 self.exemplar_store = ExemplarStore()
-                self.text2cypher = dspy.ChainOfThought(Text2CypherWithExemplars)                
+                if use_loop:
+                    self.text2cypher = dspy.ChainOfThought(Text2CypherWithSelfRefinementLoop)
+                else:
+                    self.text2cypher = dspy.ChainOfThought(Text2CypherWithExemplars)                
             else:  
                 self.text2cypher = dspy.ChainOfThought(Text2Cypher)
             
@@ -270,6 +308,21 @@ def _(
             for i, ex in enumerate(exemplars, 1):
                 formatted.append(f"""Example {i} (similarity: {ex['similarity']:.2f}):Question: {ex['question']} Cypher: {ex['cypher']}""")
             return "\n".join(formatted)
+        
+        def _format_triples(self, triples: list[dict]) -> str:
+            """
+            Format a list of triples (question, query, error) into a readable block format
+            for use inside DSPy signature inputs.
+            """
+            blocks = []
+            for i, t in enumerate(triples, 1):
+                block = f"""=== TRIPLE {i} ===
+                    QUESTION: {t['question']}
+                    QUERY: {t['query']}
+                    ERROR: {t['error']}
+                    """
+                blocks.append(block)
+            return "\n".join(blocks)
 
         def get_cypher_query(self, question: str, input_schema: str) -> Query:
             prune_result = self.prune(question=question, input_schema=input_schema)
@@ -285,12 +338,21 @@ def _(
                 # 類似した例を取得
                 similar_examples = self.exemplar_store.get_similar_exemplars(question, k=3)
                 exemplars_text = self._format_exemplars(similar_examples)
-                # Text2Cypherに例を渡す
-                text2cypher_result = self.text2cypher(
-                    question=question,
-                    input_schema=schema,
-                    exemplars=exemplars_text
-                )
+                # Text2Cypherに例を渡す、ループがオンなら追加で過去の質問、クエリとエラーメッセージを渡す
+                if self.use_loop:
+                    triples_text = self._format_triples(self.triples)
+                    text2cypher_result = self.text2cypher(
+                        question=question,
+                        input_schema=schema,
+                        exemplers = exemplars_text,
+                        triples = triples_text
+                    )
+                else:
+                    text2cypher_result = self.text2cypher(
+                        question=question,
+                        input_schema=schema,
+                        exemplars=exemplars_text
+                    )
             else:
                 text2cypher_result = self.text2cypher(question=question, input_schema=schema)
             cypher_query = text2cypher_result.query
@@ -307,15 +369,33 @@ def _(
             """
             Run a query synchronously on the database.
             """
-            result = self.get_cypher_query(question=question, input_schema=input_schema)
-            query = result.query
-            try:
-                # Run the query on the database
-                result = db_manager.conn.execute(query)
-                results = [item for row in result for item in row]
-            except RuntimeError as e:
-                print(f"Error running query: {e}")
-                results = None
+            # ループがオンならエラー出なくなるまでexecuteし続ける
+            result = None
+            query = ""
+            
+            max_tries = 5
+            tries = 0
+            while True:
+                try:
+                    tries += 1
+                    result = self.get_cypher_query(question=question, input_schema=input_schema)
+                    query = result.query
+                    # Run the query on the database
+                    result = db_manager.conn.execute(query)
+                    results = [item for row in result for item in row]
+                    break
+                except RuntimeError as e:
+                    if tries >= max_tries:
+                        print(f"Maximum number of error running query passed, giving up")
+                        results = None
+                        break
+                    newTriple = {
+                        "question": question,
+                        "query": query,
+                        "errorMessage": str(e)
+                    }
+                    print(f"Error running query, new triple added: {newTriple}")
+                    self.triples.append(newTriple)
             return query, results
 
         def forward(self, db_manager: KuzuDatabaseManager, question: str, input_schema: str):
