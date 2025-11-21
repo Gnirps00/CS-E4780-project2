@@ -486,6 +486,7 @@ def _():
     import os
     from textwrap import dedent
     from typing import Any
+    import time
 
     import dspy
     import kuzu
@@ -509,7 +510,8 @@ def _():
         kuzu,
         mo,
         ExemplarStore,
-        Text2CypherCache
+        Text2CypherCache,
+        time
     )
 
 
