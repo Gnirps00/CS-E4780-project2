@@ -373,7 +373,7 @@ def _(
             result = None
             query = ""
             
-            max_tries = 5
+            max_tries = 5 if self.use_loop else 1
             tries = 0
             while True:
                 try:
