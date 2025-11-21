@@ -1,4 +1,5 @@
 import marimo
+import time
 
 __generated_with = "0.14.17"
 app = marimo.App(width="medium")
@@ -36,9 +37,15 @@ def _(KuzuDatabaseManager, mo, run_graph_rag, text_ui):
     db_manager = KuzuDatabaseManager(db_name)
 
     question = text_ui.value
+    start_time = time.perf_counter()
 
     with mo.status.spinner(title="Generating answer...") as _spinner:
         result = run_graph_rag([question], db_manager)[0]
+
+    end_time = time.perf_counter()
+    whole_time = (end_time - start_time) * 1000
+    mo.md(f"**Time taken for whole process:** {whole_time:.2f} milliseconds")
+    print(f"Time taken for whole process: {whole_time:.2f} milliseconds")
 
     query = result['query']
     answer = result['answer'].response
@@ -199,6 +206,7 @@ def _(kuzu):
 
         @property
         def get_schema_dict(self) -> dict[str, list[dict]]:
+            dict_start_time = time.perf_counter()
             response = self.conn.execute("CALL SHOW_TABLES() WHERE type = 'NODE' RETURN *;")
             nodes = [row[1] for row in response]  # type: ignore
             response = self.conn.execute("CALL SHOW_TABLES() WHERE type = 'REL' RETURN *;")
@@ -228,6 +236,9 @@ def _(kuzu):
                 for row in rel_properties:  # type: ignore
                     edge["properties"].append({"name": row[1], "type": row[2]})  # type: ignore
                 schema["edges"].append(edge)
+            dict_end_time = time.perf_counter()
+            dict_time = (dict_end_time - dict_start_time) * 1000
+            print(f"Time taken to get schema as dict: {dict_time:.2f} milliseconds")
             return schema
     return (KuzuDatabaseManager,)
 
@@ -325,13 +336,22 @@ def _(
             return "\n".join(blocks)
 
         def get_cypher_query(self, question: str, input_schema: str) -> Query:
+            prune_start = time.perf_counter()
             prune_result = self.prune(question=question, input_schema=input_schema)
+            prune_end = time.perf_counter()
+            prune_time = (prune_end - prune_start) * 1000
+            print(f"Time taken for pruning schema: {prune_time:.2f} milliseconds")
             schema = prune_result.pruned_schema
+
+            create_query_start = time.perf_counter()
             # キャッシュをチェック
             if hasattr(self, 'cache') and self.cache:
                 cache_result = self.cache.get(question, str(schema))
                 if cache_result:
                     print(f"Cache hit \n Stats: {self.cache.get_stats()}")
+                    create_query_end = time.perf_counter()
+                    create_query_time = (create_query_end - create_query_start) * 1000
+                    print(f"Time taken for creating query with cache: {create_query_time:.2f} milliseconds")
                     return cache_result['query']
             # キャッシュヒットしない場合はクエリ生成
             if self.use_exemplars:
@@ -344,7 +364,7 @@ def _(
                     text2cypher_result = self.text2cypher(
                         question=question,
                         input_schema=schema,
-                        exemplers = exemplars_text,
+                        exemplars = exemplars_text,
                         triples = triples_text
                     )
                 else:
@@ -361,6 +381,9 @@ def _(
             if hasattr(self, 'cache') and self.cache:
                 self.cache.set(question, str(schema), cypher_query)
 
+            create_query_end = time.perf_counter()
+            create_query_time = (create_query_end - create_query_start) * 1000
+            print(f"Time taken for creating query without cache: {create_query_time:.2f} milliseconds")
             return cypher_query
 
         def run_query(
@@ -375,6 +398,8 @@ def _(
             
             max_tries = 5 if self.use_loop else 1
             tries = 0
+
+            query_start = time.perf_counter()
             while True:
                 try:
                     tries += 1
@@ -396,6 +421,10 @@ def _(
                     }
                     print(f"Error running query, new triple added: {newTriple}")
                     self.triples.append(newTriple)
+
+            query_end = time.perf_counter()
+            query_time = (query_end - query_start) * 1000
+            print(f"Time taken for running query: {query_time:.2f} milliseconds")
             return query, results
 
         def forward(self, db_manager: KuzuDatabaseManager, question: str, input_schema: str):

@@ -4,3 +4,6 @@ nobel.kuzu.wal
 __pycache__/
 nobel.kuzu
 kuzu-0.11.3-cp311-cp311-win_amd64.whl
+.venv/
+pyproject.toml
+uv.lock
