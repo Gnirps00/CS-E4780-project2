@@ -284,7 +284,8 @@ def _(
     Text2CypherWithExemplars,  # 追加
     ExemplarStore,  # ここに追加！
     Text2CypherCache,
-    Text2CypherWithSelfRefinementLoop
+    Text2CypherWithSelfRefinementLoop,
+    CypherPostProcessor
 ):
     class GraphRAG(dspy.Module):
         """
@@ -292,10 +293,11 @@ def _(
         on the Kuzu database, to generate a natural language response.
         """
 
-        def __init__(self, use_exemplars: bool = True, use_cache: bool = True, use_loop: bool = True):
+        def __init__(self, use_exemplars: bool = True, use_cache: bool = True, use_loop: bool = True, use_post_process: bool = True):
             self.prune = dspy.Predict(PruneSchema)
             self.use_exemplars = use_exemplars
             self.use_loop = use_loop
+            self.use_post_process = use_post_process
             self.triples = []
 
             if use_exemplars:
@@ -311,6 +313,12 @@ def _(
                 self.cache = Text2CypherCache()
             else:
                 self.cache = None
+            
+            if use_post_process:
+                self.post_processor = CypherPostProcessor()
+            else:
+                self.post_processor = None
+
             self.generate_answer = dspy.ChainOfThought(AnswerQuestion)
 
         def _format_exemplars(self, exemplars: list[dict]) -> str:
@@ -377,6 +385,11 @@ def _(
                 text2cypher_result = self.text2cypher(question=question, input_schema=schema)
             cypher_query = text2cypher_result.query
             
+            if self.post_processor:
+                original_query = cypher_query.query
+                processed_query = self.post_processor.post_process(original_query)
+                cypher_query.query = processed_query
+
             # キャッシュに追加
             if hasattr(self, 'cache') and self.cache:
                 self.cache.set(question, str(schema), cypher_query)
@@ -496,6 +509,7 @@ def _():
 
     from exemplar_store import ExemplarStore
     from lru_cache import Text2CypherCache
+    from cypher_post_processor import CypherPostProcessor
     
     load_dotenv()
 
@@ -511,7 +525,8 @@ def _():
         mo,
         ExemplarStore,
         Text2CypherCache,
-        time
+        time,
+        CypherPostProcessor
     )
 
 
