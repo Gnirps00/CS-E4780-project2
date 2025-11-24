@@ -17,15 +17,15 @@ class CypherPostProcessor:
         ]
     
     def post_process(self, query: str) -> Tuple[str, List[str]]:
-        # lowercaseを
+        # lowercase比較強要のみ実装
         query, modified_queries = self._enforce_lowercase_comparison(query)
-
+        print("=========Post Process Result==========")
         if modified_queries == []:
-            print("No modified queries")
+            print("No modified in Enfocing Lowercase Comparison")
         else:
             print(f"modified queries:{modified_queries}")
         # Todo: ルール追加
-
+        print("======================================")
         return query
     
     def _enforce_lowercase_comparison(self, query: str) -> Tuple[str, bool]:
@@ -35,12 +35,11 @@ class CypherPostProcessor:
         対応パターン:
         1. WHERE x.property = 'value'
         2. WHERE x.property CONTAINS 'value'
-        3. AND/OR 句内の比較
         """
         modified_queries = []
         original_query = query
         
-        # パターン1: property = 'value' (すでにLOWER()がない場合)
+        # パターン1: property = 'value'
         # 例: WHERE s.knownName = 'Einstein' -> WHERE LOWER(s.knownName) = LOWER('Einstein')
         pattern_equals = r'(\w+)\.(\w+)\s*=\s*["\']([^"\']+)["\']'
         
