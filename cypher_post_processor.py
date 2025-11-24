@@ -85,19 +85,21 @@ class CypherPostProcessor:
         return query, modified_queries
 
 # テスト実行方法:python3 cypher_post_processor.py
+# memo: Kuzu DBでOriginal/Processed Queryを叩いて検証可能
+# Original Queryでは空の結果が返ってくるが、Processed Queryでは適切な結果が返ってくる
 # def test_post_processor():
 #     """簡易テスト関数"""
 #     processor = CypherPostProcessor()
     
 #     test_queries = [
 #         # Test 1: knownName comparison
-#         "MATCH (s:Scholar) WHERE s.knownName = 'Einstein' RETURN s.knownName",
+#         "MATCH (s:Scholar) WHERE s.knownName = 'A. MICHAEL Spence' RETURN s.knownName",
         
 #         # Test 2: Institution name with CONTAINS
-#         "MATCH (i:Institution) WHERE i.name CONTAINS 'Harvard' RETURN i.name",
+#         "MATCH (i:Institution) WHERE i.name CONTAINS 'HArvard' RETURN i.name",
         
 #         # Test 3: Multiple properties
-#         "MATCH (s:Scholar)-[:WON]->(p:Prize) WHERE s.knownName = 'Curie' AND p.category = 'Physics' RETURN s.knownName, p.category",        
+#         "MATCH (s:Scholar)-[:WON]->(p:Prize) WHERE s.knownName = 'MARIE Curie' AND p.category = 'PHYSICS' RETURN s.knownName, p.category",        
 #     ]
     
 #     print("=" * 80)
@@ -111,7 +113,6 @@ class CypherPostProcessor:
 #         print(f"Processed: {processed}")
 
 #     print("\n" + "=" * 80)
-
 
 # if __name__ == "__main__":
 #     test_post_processor()
