@@ -46,6 +46,7 @@ def _(KuzuDatabaseManager, mo, run_graph_rag, text_ui):
     whole_time = (end_time - start_time) * 1000
     mo.md(f"**Time taken for whole process:** {whole_time:.2f} milliseconds")
     print(f"Time taken for whole process: {whole_time:.2f} milliseconds")
+    print(f"================================Process End====================================")
 
     query = result['query']
     answer = result['answer'].response
@@ -238,6 +239,8 @@ def _(kuzu):
                 schema["edges"].append(edge)
             dict_end_time = time.perf_counter()
             dict_time = (dict_end_time - dict_start_time) * 1000
+            
+            print(f"================================Process Start==================================")
             print(f"Time taken to get schema as dict: {dict_time:.2f} milliseconds")
             return schema
     return (KuzuDatabaseManager,)
