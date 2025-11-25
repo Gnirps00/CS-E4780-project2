@@ -22,7 +22,7 @@ from graph_rag_core import GraphRAG, KuzuDatabaseManager
 
 
 # Use only 2 questions and 2 configs for quick testing
-TEST_QUESTIONS_MINI = TEST_QUESTIONS[:2]  # First 2 questions
+# TEST_QUESTIONS_MINI = TEST_QUESTIONS[:2]  # First 2 questions
 
 
 @dataclass
@@ -71,7 +71,7 @@ def main():
     print("MINI GRAPH RAG BENCHMARK TEST")
     print("=" * 80)
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Test questions: {len(TEST_QUESTIONS_MINI)}")
+    print(f"Test questions: {len(TEST_QUESTIONS)}")
     print(f"Configurations: {len(BENCHMARK_CONFIGS_MINI)}")
     print(f"Runs per question: {BENCHMARK_CONFIGS_MINI[0].num_runs}")
     print("=" * 80)
@@ -98,8 +98,8 @@ def main():
         # Run all questions multiple times
         for run_number in range(1, config.num_runs + 1):
             print(f"\nRun {run_number}/{config.num_runs}:")
-            for i, question in enumerate(TEST_QUESTIONS_MINI, 1):
-                print(f"\n  [{i}/{len(TEST_QUESTIONS_MINI)}] Question: {question.question}")
+            for i, question in enumerate(TEST_QUESTIONS, 1):
+                print(f"\n  [{i}/{len(TEST_QUESTIONS)}] Question: {question.question}")
                 print(f"      Expected Cypher: {question.cypher}")
 
                 start_time = time.perf_counter()
