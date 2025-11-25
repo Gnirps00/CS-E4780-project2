@@ -287,7 +287,6 @@ class GraphRAG(dspy.Module):
         return "\n".join(blocks)
 
     def get_cypher_query(self, question: str, input_schema: str) -> tuple[Query, Any]:
-        print(f"Generating Cypher query for question: {question}")
         prune_start = time.perf_counter()
         prune_result = self.prune(question=question, input_schema=input_schema)
         prune_end = time.perf_counter()
@@ -356,7 +355,6 @@ class GraphRAG(dspy.Module):
         query_start = time.perf_counter()
         while True:
             try:
-                print(f"Attempt {tries + 1} to run query")
                 tries += 1
                 cypher_query, schema = self.get_cypher_query(question=question, input_schema=input_schema)
                 query = cypher_query.query
