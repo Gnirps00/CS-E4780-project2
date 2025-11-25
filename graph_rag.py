@@ -387,7 +387,8 @@ def _(
             else:
                 text2cypher_result = self.text2cypher(question=question, input_schema=schema)
             cypher_query = text2cypher_result.query
-            
+
+            # post_processorにてルールベースでクエリを修正(現在Lowercase強制のみ実装)
             if self.post_processor:
                 original_query = cypher_query.query
                 processed_query = self.post_processor.post_process(original_query)
