@@ -286,7 +286,7 @@ class GraphRAG(dspy.Module):
             blocks.append(block)
         return "\n".join(blocks)
 
-    def get_cypher_query(self, question: str, input_schema: str) -> Query:
+    def get_cypher_query(self, question: str, input_schema: str) -> tuple[Query, Any]:
         prune_start = time.perf_counter()
         prune_result = self.prune(question=question, input_schema=input_schema)
         prune_end = time.perf_counter()
@@ -334,18 +334,14 @@ class GraphRAG(dspy.Module):
             processed_query = self.post_processor.post_process(original_query)
             cypher_query.query = processed_query
 
-        # キャッシュに追加
-        if hasattr(self, 'cache') and self.cache:
-            self.cache.set(question, str(schema), cypher_query)
-
         create_query_end = time.perf_counter()
         create_query_time = (create_query_end - create_query_start) * 1000
         # print(f"Time taken for creating query without cache: {create_query_time:.2f} milliseconds")
-        return cypher_query
+        return cypher_query, schema
 
     def run_query(
         self, db_manager: KuzuDatabaseManager, question: str, input_schema: str
-    ) -> tuple[str, list[Any] | None]:
+    ) -> tuple[str, list[Any] | None, float, float]:
         """
         Run a query synchronously on the database.
         """
@@ -357,13 +353,22 @@ class GraphRAG(dspy.Module):
         tries = 0
 
         query_start = time.perf_counter()
+        create_query_time = 0.0
         while True:
             try:
                 tries += 1
-                result = self.get_cypher_query(question=question, input_schema=input_schema)
-                query = result.query
+                create_query_start = time.perf_counter()
+                cypher_query, schema = self.get_cypher_query(question=question, input_schema=input_schema)
+                create_query_end = time.perf_counter()
+                create_query_time = (create_query_end - create_query_start) * 1000
+                query = cypher_query.query
                 # Run the query on the database
                 result = db_manager.conn.execute(query)
+
+                # キャッシュに追加
+                if hasattr(self, 'cache') and self.cache:
+                    self.cache.set(question, str(schema), cypher_query)
+                
                 results = [item for row in result for item in row]
                 break
             except RuntimeError as e:
@@ -382,10 +387,10 @@ class GraphRAG(dspy.Module):
         query_end = time.perf_counter()
         query_time = (query_end - query_start) * 1000
         # print(f"Time taken for running query: {query_time:.2f} milliseconds")
-        return query, results
+        return query, results, create_query_time, query_time
 
     def forward(self, db_manager: KuzuDatabaseManager, question: str, input_schema: str):
-        final_query, final_context = self.run_query(db_manager, question, input_schema)
+        final_query, final_context, create_query_time, query_time = self.run_query(db_manager, question, input_schema)
         if final_context is None:
             # print("Empty results obtained from the graph database. Please retry with a different question.")
             return {}
@@ -397,5 +402,7 @@ class GraphRAG(dspy.Module):
                 "question": question,
                 "query": final_query,
                 "answer": answer,
+                "create_query_time_ms": create_query_time,
+                "query_time_ms": query_time
             }
             return response

@@ -40,6 +40,7 @@ class BenchmarkConfig:
 BENCHMARK_CONFIGS_MINI = [
     BenchmarkConfig("baseline", False, False, False, False),
     BenchmarkConfig("full_features", True, True, True, True),
+    BenchmarkConfig("only_cache", False, True, False, False),
 ]
 
 
@@ -80,7 +81,9 @@ def main():
     db_manager = KuzuDatabaseManager("nobel.kuzu")
     schema = str(db_manager.get_schema_dict)
 
-    for config in BENCHMARK_CONFIGS_MINI:
+    execution_times = [[] for _ in BENCHMARK_CONFIGS_MINI]
+
+    for idx, config in enumerate(BENCHMARK_CONFIGS_MINI):
         print(f"\n{'='*80}")
         print(f"Running benchmark: {config.name}")
         print(f"  Exemplars: {config.use_exemplars}, Cache: {config.use_cache}, "
@@ -113,6 +116,8 @@ def main():
                     end_time = time.perf_counter()
                     execution_time_ms = (end_time - start_time) * 1000
 
+                    execution_times[idx].append(execution_time_ms)
+
                     if result and 'query' in result and result['query']:
                         cache_indicator = ""
                         if config.use_cache and hasattr(rag, 'cache') and rag.cache:
@@ -126,12 +131,17 @@ def main():
                         if 'answer' in result and result['answer']:
                             answer_text = result['answer'].response[:100] if hasattr(result['answer'], 'response') else str(result['answer'])[:100]
                             print(f"      Answer: {answer_text}...")
+
+                        if 'create_query_time_ms' in result and 'query_time_ms' in result:
+                            print(f"      Query Creation Time: {result['create_query_time_ms']:.0f}ms")
+                            print(f"      Query Execution Time: {result['query_time_ms']:.0f}ms")
                     else:
                         print(f"      ✗ Status: Empty result ({execution_time_ms:.0f}ms)")
 
                 except Exception as e:
                     end_time = time.perf_counter()
                     execution_time_ms = (end_time - start_time) * 1000
+                    execution_times[idx].append(execution_time_ms)
                     print(f"      ✗ Status: Error ({execution_time_ms:.0f}ms)")
                     print(f"      Error: {str(e)[:100]}")
 
@@ -142,6 +152,14 @@ def main():
             print(f"  Hit Rate: {cache_stats['hit_rate']:.2%}")
             print(f"  Total Requests: {cache_stats['total_requests']}")
             print(f"  Hits: {cache_stats['hits']}, Misses: {cache_stats['misses']}")
+
+    for idx, config in enumerate(BENCHMARK_CONFIGS_MINI):
+        times = execution_times[idx]
+        if times:
+            avg_time = sum(times) / len(times)
+            print(f"\nAverage execution time for config '{config.name}': {avg_time:.0f}ms over {len(times)} runs")
+        else:
+            print(f"\nNo execution times recorded for config '{config.name}'")
 
     print("\n" + "=" * 80)
     print("MINI BENCHMARK COMPLETE")
