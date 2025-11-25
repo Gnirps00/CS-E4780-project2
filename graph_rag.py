@@ -346,7 +346,7 @@ def _(
                 blocks.append(block)
             return "\n".join(blocks)
 
-        def get_cypher_query(self, question: str, input_schema: str) -> Query:
+        def get_cypher_query(self, question: str, input_schema: str) -> tuple[Query, Any]:
             prune_start = time.perf_counter()
             prune_result = self.prune(question=question, input_schema=input_schema)
             prune_end = time.perf_counter()
@@ -394,14 +394,10 @@ def _(
                 processed_query = self.post_processor.post_process(original_query)
                 cypher_query.query = processed_query
 
-            # キャッシュに追加
-            if hasattr(self, 'cache') and self.cache:
-                self.cache.set(question, str(schema), cypher_query)
-
             create_query_end = time.perf_counter()
             create_query_time = (create_query_end - create_query_start) * 1000
             print(f"Time taken for creating query without cache: {create_query_time:.2f} milliseconds")
-            return cypher_query
+            return cypher_query, schema
 
         def run_query(
             self, db_manager: KuzuDatabaseManager, question: str, input_schema: str
@@ -420,10 +416,15 @@ def _(
             while True:
                 try:
                     tries += 1
-                    result = self.get_cypher_query(question=question, input_schema=input_schema)
-                    query = result.query
+                    cypher_query, schema = self.get_cypher_query(question=question, input_schema=input_schema)
+                    query = cypher_query.query
                     # Run the query on the database
                     result = db_manager.conn.execute(query)
+
+                    # キャッシュに追加
+                    if hasattr(self, 'cache') and self.cache:
+                        self.cache.set(question, str(schema), cypher_query)
+
                     results = [item for row in result for item in row]
                     break
                 except RuntimeError as e:
