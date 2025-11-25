@@ -131,6 +131,10 @@ def main():
                         if 'answer' in result and result['answer']:
                             answer_text = result['answer'].response[:100] if hasattr(result['answer'], 'response') else str(result['answer'])[:100]
                             print(f"      Answer: {answer_text}...")
+
+                        if 'create_query_time_ms' in result and 'query_time_ms' in result:
+                            print(f"      Query Creation Time: {result['create_query_time_ms']:.0f}ms")
+                            print(f"      Query Execution Time: {result['query_time_ms']:.0f}ms")
                     else:
                         print(f"      ✗ Status: Empty result ({execution_time_ms:.0f}ms)")
 
