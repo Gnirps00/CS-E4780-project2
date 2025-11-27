@@ -220,15 +220,19 @@ Tests all 9 questions with three configurations:
 
 Each question is run twice to test cache effectiveness.
 
-### Measured Metrics
+### Output Metrics
+
+The benchmark displays the following metrics for each test run:
 
 **Performance Metrics:**
-- **Execution time**: Time to generate and execute each query (milliseconds)
-- **Query generation time**: Time spent in LLM calls for query creation
-- **Query execution time**: Time spent running query on database
-- **Cache hit rate**: Percentage of queries served from cache
+- **Total execution time**: End-to-end time for each question (milliseconds)
+- **Query creation time**: Time spent generating the Cypher query (milliseconds)
+- **Query execution time**: Time spent running the query on database (milliseconds)
+- **Average execution time**: Mean time across all runs per configuration
+- **Cache hit rate**: Percentage of queries served from cache (when cache enabled)
 
-**Accuracy Metrics:**
-- **Success rate**: Percentage of queries that executed successfully
-- **Error analysis**: Types of errors encountered
-- **Query correctness**: Comparison with ground truth Cypher (manual inspection)
+**Quality Indicators:**
+- **Success/failure status**: Whether the query executed without errors (✓/✗)
+- **Generated Cypher query**: Displayed for manual comparison with expected query
+- **Query results and answers**: Shown for verification
+- **Error messages**: Displayed when query execution fails
