@@ -127,7 +127,7 @@ This Graph RAG system includes several features to improve both accuracy and per
 
 #### 1. Exemplar Store ([exemplar_store.py](exemplar_store.py))
 
-Uses semantic similarity search to retrieve relevant question-Cypher pairs as examples for the LLM, improving query generation accuracy by providing concrete examples and reducing errors in complex graph patterns.
+We implement semantic similarity search to retrieve relevant question-Cypher pairs as examples for the LLM. This improves query generation accuracy by providing concrete examples and reduces errors in complex graph patterns.
 
 **How it works:**
 - Stores a collection of example questions with their corresponding Cypher queries
@@ -136,7 +136,7 @@ Uses semantic similarity search to retrieve relevant question-Cypher pairs as ex
 
 #### 2. Post-processor ([cypher_post_processor.py](cypher_post_processor.py))
 
-Applies rule-based corrections to generated Cypher queries to fix common LLM mistakes, ensuring consistent case-insensitive string comparisons and reducing query execution errors.
+We apply rule-based corrections to generated Cypher queries to fix common LLM mistakes. This ensures consistent case-insensitive string comparisons and reduces query execution errors.
 
 **Current features:**
 - **Automatic LOWER() enforcement**: Ensures all string comparisons use lowercase conversion for case-insensitive matching
@@ -153,7 +153,7 @@ WHERE LOWER(s.name) CONTAINS 'john'
 
 #### 3. Retry Loop with Error Feedback ([graph_rag_core.py](graph_rag_core.py))
 
-Automatically retries query generation when execution fails, providing error context to the LLM for self-correction, significantly improving success rate on difficult questions by recovering from syntax errors and invalid queries.
+We automatically retry query generation when execution fails and provide error context to the LLM for self-correction. This significantly improves success rate on difficult questions by recovering from syntax errors and invalid queries.
 
 **How it works:**
 - Attempts to execute the generated Cypher query
@@ -166,7 +166,7 @@ Automatically retries query generation when execution fails, providing error con
 
 #### 4. LRU Cache ([lru_cache.py](lru_cache.py))
 
-Caches generated Cypher queries for identical question-schema pairs to avoid redundant LLM calls, dramatically reducing response time for repeated questions and API costs.
+We cache generated Cypher queries for identical question-schema pairs to avoid redundant LLM calls. This dramatically reduces response time for repeated questions and API costs.
 
 **How it works:**
 - Uses question text + pruned schema as cache key
