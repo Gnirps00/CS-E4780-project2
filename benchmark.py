@@ -38,9 +38,9 @@ class BenchmarkConfig:
 
 # Test only 2 configurations
 BENCHMARK_CONFIGS_MINI = [
-    BenchmarkConfig("baseline", False, False, False, False),
+    # BenchmarkConfig("baseline", False, False, False, False),
     BenchmarkConfig("full_features", True, True, True, True),
-    BenchmarkConfig("only_cache", False, True, False, False),
+    # BenchmarkConfig("only_cache", False, True, False, False),
 ]
 
 

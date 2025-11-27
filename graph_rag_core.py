@@ -300,10 +300,11 @@ class GraphRAG(dspy.Module):
             cache_result = self.cache.get(question, str(schema))
             if cache_result:
                 # print(f"Cache hit \n Stats: {self.cache.get_stats()}")
+                print(f"[CACHE HIT] Question: {question}")
                 create_query_end = time.perf_counter()
                 create_query_time = (create_query_end - create_query_start) * 1000
                 # print(f"Time taken for creating query with cache: {create_query_time:.2f} milliseconds")
-                return cache_result['query']
+                return cache_result['query'], schema
         # キャッシュヒットしない場合はクエリ生成
         if self.use_exemplars:
             # 類似した例を取得

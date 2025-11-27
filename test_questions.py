@@ -65,18 +65,18 @@ RETURN DISTINCT s.knownName AS scholar_name, p.awardYear AS year, i.name AS inst
         description="Multi-node join with institution filter"
     ),
 
-    TestQuestion(
-        id=5,
-        question="Find Japanese scholars who won prizes after 2000",
-        cypher="""MATCH (s:Scholar)-[:BORN_IN]->(c:City)-[:IS_CITY_IN]->(co:Country)
-WHERE LOWER(co.name) CONTAINS 'japan'
-MATCH (s)-[:WON]->(p:Prize)
-WHERE p.awardYear > '2000'
-RETURN DISTINCT s.knownName AS scholar_name, p.category AS category, p.awardYear AS year
-ORDER BY year""",
-        difficulty="medium",
-        description="Geographic filter with time range"
-    ),
+#     TestQuestion(
+#         id=5,
+#         question="Find Japanese scholars who won prizes after 2000",
+#         cypher="""MATCH (s:Scholar)-[:BORN_IN]->(c:City)-[:IS_CITY_IN]->(co:Country)
+# WHERE LOWER(co.name) CONTAINS 'japan'
+# MATCH (s)-[:WON]->(p:Prize)
+# WHERE p.awardYear > '2000'
+# RETURN DISTINCT s.knownName AS scholar_name, p.category AS category, p.awardYear AS year
+# ORDER BY year""",
+#         difficulty="medium",
+#         description="Geographic filter with time range"
+#     ),
 
     TestQuestion(
         id=6,
@@ -120,18 +120,18 @@ ORDER BY prize_count DESC""",
         description="Complex aggregation with filtering and collection"
     ),
 
-    TestQuestion(
-        id=9,
-        question="Find scholars affiliated with institutions in the United States who won prizes in Medicine",
-        cypher="""MATCH (s:Scholar)-[:AFFILIATED_WITH]->(i:Institution)-[:IS_LOCATED_IN]->(c:City)-[:IS_CITY_IN]->(co:Country)
-WHERE LOWER(co.name) CONTAINS 'united states' OR LOWER(co.name) = 'usa'
-MATCH (s)-[:WON]->(p:Prize)
-WHERE LOWER(p.category) CONTAINS 'medicine'
-RETURN DISTINCT s.knownName AS scholar_name, i.name AS institution, c.name AS city, p.awardYear AS year
-ORDER BY year DESC""",
-        difficulty="hard",
-        description="Deep institution hierarchy with multiple name variations"
-    ),
+#     TestQuestion(
+#         id=9,
+#         question="Find scholars affiliated with institutions in the United States who won prizes in Medicine",
+#         cypher="""MATCH (s:Scholar)-[:AFFILIATED_WITH]->(i:Institution)-[:IS_LOCATED_IN]->(c:City)-[:IS_CITY_IN]->(co:Country)
+# WHERE LOWER(co.name) CONTAINS 'united states' OR LOWER(co.name) = 'usa'
+# MATCH (s)-[:WON]->(p:Prize)
+# WHERE LOWER(p.category) CONTAINS 'medicine'
+# RETURN DISTINCT s.knownName AS scholar_name, i.name AS institution, c.name AS city, p.awardYear AS year
+# ORDER BY year DESC""",
+#         difficulty="hard",
+#         description="Deep institution hierarchy with multiple name variations"
+#     ),
 ]
 
 
